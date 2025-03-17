@@ -148,6 +148,16 @@ foreach party of local parties {
     replace VOTES_`party_clean' = TTLVOTES if POLITICALPARTY == "`party'"
 }
 
+* Create ward_id_10 as a unique identifier for each ward
+gen ward_id_10 = REGION + "_" + DISTRICT + "_" + COSTITUENCY + "_" + WARD
+
+* Count the total number of candidates per ward
+bysort ward_id_10: gen total_candidates_10 = _N
+
+* Calculate the total votes in each ward
+bysort ward_id_10 (TTLVOTES): gen ward_total_votes_10 = sum(TTLVOTES)
+bysort ward_id_10 (TTLVOTES): replace ward_total_votes_10 = ward_total_votes_10[_N] // Keep the final sum for each ward
+
 * Save the cleaned dataset
 save "Tz_election_2010_cleaned.dta", replace
 
