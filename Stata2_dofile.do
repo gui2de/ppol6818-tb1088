@@ -25,7 +25,7 @@ gen prem_number = regexs(1) if regexm(html_text, "([0-9]{11})")
 gen gender = regexs(1) if regexm(html_text, ">(M|F)<")
 
 // student names
-gen name = regexs(1) if regexm(html_text, "([A-Za-z ]+)</FONT></TD>\s*<TD[^>]+>")
+gen name = regexs(1) if regexm(s, "[MF].*?<P>([A-Z ]+)<\/FONT><\/TD>")
 
 
 // extracting grades
@@ -108,7 +108,7 @@ save "$data_path/q3_GPS Data_assigned.dta", replace
 
 *Q4: 2010 Tanzania Election Data cleaning
 *2010 election data (Tz_election_2010_raw.xlsx) from Tanzania is not usable in its current format. You have to create a dataset in the wide form, where each row is a unique ward, and votes received by each party are given in separate columns. You can check the following dta file as a template for your output: Tz_elec_template. Your objective is to clean the dataset in such a way that it resembles the format of the template dataset.
- use "/Users/tianyubai/Documents/GitHub/ppol6818-tb1088/week_05/03_assignment/01_data/q4_Tz_election_template.dta", clear
+use "/Users/tianyubai/Documents/GitHub/ppol6818-tb1088/week_05/03_assignment/01_data/q4_Tz_election_template.dta", clear
 
 import excel "/Users/tianyubai/Documents/GitHub/ppol6818-tb1088/week_05/03_assignment/01_data/q4_Tz_election_2010_raw.xls", firstrow cellrange(A5) clear
 
@@ -119,7 +119,7 @@ capture drop G  // Drop column G (since SEX already represents gender)
 * Drop the first row if it's an extra header
 capture drop in 1
 
-* Fill down missing values in REGION, DISTRICT, COSTITUENCY, and WARD
+* Fill down missing values in REGION, DISTRICT, CONSTITUENCY, and WARD
 foreach var in REGION DISTRICT COSTITUENCY WARD {
     replace `var' = `var'[_n-1] if missing(`var')
 }
@@ -134,8 +134,25 @@ replace ELECTEDCANDIDATE = "Not Selected" if missing(ELECTEDCANDIDATE)
 replace TTLVOTES = subinstr(TTLVOTES, " votes", "", .)  
 destring TTLVOTES, replace force  
 
+* Generate separate columns for each party's votes dynamically
+levelsof POLITICALPARTY, local(parties)   // Get unique party names
+
+foreach party of local parties {
+    local party_clean = subinstr("`party'", " ", "_", .)   // Replace spaces with underscores
+    local party_clean = subinstr("`party_clean'", "-", "_", .)  // Replace hyphens with underscores
+    local party_clean = subinstr("`party_clean'", ".", "", .)  // Remove dots if present
+
+    di "`party_clean'"   // Debugging: Print cleaned party name to check for issues
+
+    capture gen VOTES_`party_clean' = 0  // Use capture to avoid errors if column exists
+    replace VOTES_`party_clean' = TTLVOTES if POLITICALPARTY == "`party'"
+}
+
 * Save the cleaned dataset
 save "Tz_election_2010_cleaned.dta", replace
+
+
+
 
 *Q5: Tanzania PSLE data
 *PSLE dataset contains data of 17,329 schools. We have the region and district of each school but for our analysis we need the ward information. There is another dataset (q5_school_location) that has the ward information of 19,733 schools. Your job is to identify ward information for 17,329 schools on the PSLE dataset using the q5_school_location.dta. Note: Final dataset should be the PSLE dataset + ward column (i.e. N = 17,329). Hint: You might have to try different methods to get the best results, even then you might have some schools where we can't find ward information. 
@@ -213,6 +230,7 @@ merge m:1 school_clean using "$data_path/q5_school_location_clean_unique.dta"
 tab _merge
 drop _merge
 save "$data_path/q5_psle_merged_exact.dta", replace
+
 
 
 
